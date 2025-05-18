@@ -1,3 +1,13 @@
 google-cloud-storage
 streamlit
+streamlit_tags
 google-auth
+Pillow
+fastapi
+generativeai
+uvicorn
+google-cloud-aiplatform
+gspread
+python-dotenv
+requests
+google-api-python-client
