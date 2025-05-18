@@ -9,6 +9,58 @@ import json
 import gspread
 from google.oauth2.service_account import Credentials
 
+SHEET_NAME="PoC OMI Metadata Sheets"
+WORKSHEET_NAME="Sheet1"
+
+def write_json_to_sheet_cell(json_file_path, cell_address):
+    """
+    Reads the contents of a JSON file and writes it to a specific cell in a Google Sheet.
+
+    Args:
+        json_file_path (str): The path to the JSON file.
+        spreadsheet_name (str): The name of the Google Sheet.
+        worksheet_name (str): The name of the worksheet within the Google Sheet.
+        cell_address (str): The address of the cell where you want to write the JSON data (e.g., 'A1').
+    """
+    try:
+        with open(json_file_path, 'r') as f:
+            json_data = f.read()
+    except FileNotFoundError:
+        print(f"Error: JSON file not found at {json_file_path}")
+        return
+
+    # Define the scope for Google Sheets API
+    scope = [
+        'https://www.googleapis.com/auth/spreadsheets'
+    ]
+
+    
+
+    try:
+        # Load credentials from the downloaded JSON key file
+        creds = Credentials.from_service_account_file(st.secrets["gcp_service_account"], scopes=scope)
+        
+        # Authorize gspread
+        gc = gspread.authorize(creds)
+
+        # Open the Google Sheet by name
+        spreadsheet = gc.open(SHEET_NAME)
+
+        # Select the worksheet by name
+        worksheet = spreadsheet.worksheet(WORKSHEET_NAME)
+
+        # Update the specified cell with the JSON data
+        worksheet.update(cell_address, json_data)
+
+        print(f"JSON data from '{json_file_path}' written to '{SHEET_NAME}!{WORKSHEET_NAME}!{cell_address}'")
+
+    except gspread.exceptions.SpreadsheetNotFound:
+        print(f"Error: Spreadsheet '{SHEET_NAME}' not found.")
+    except gspread.exceptions.WorksheetNotFound:
+        print(f"Error: Worksheet '{WORKSHEET_NAME}' not found in '{SHEET_NAME}'.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
 # Load initial tags from JSON
 try:
     with open("src/tags.json", "r") as f:
@@ -123,6 +175,12 @@ if st.session_state['file_uploaded']:
             # Save the tags to a JSON file
             with open("src/output_tags.json", "w") as f:
                 json.dump(tags_list, f)
+
+            # Call the function to write to Google Sheets
+            write_json_to_sheet_cell(
+                json_file_path='output_tags.json',
+                cell_address='A1'
+            )
             with col3b:
                 st.success("Tags exported successfully!")
 
