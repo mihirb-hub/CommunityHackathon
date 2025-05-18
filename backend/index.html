@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Okinawa Memories Image Scanner</title>
+</head>
+<body>
+  <main>
+    <h1>Okinawa Memories Image Scanner</h1>
+    <form>
+      <div class="image-picker">
+        <!-- allow picking multiple images at once -->
+        <input 
+          type="file" 
+          id="fileInput" 
+          name="file" 
+          accept="image/*" 
+          multiple
+        >
+      </div>
+
+      <div class="prompt-box">
+        <!-- make this in‐editable or replace with a <span> if you want -->
+        <input 
+          type="text" 
+          value="Press to scan image for keywords." 
+          readonly 
+          disabled 
+        >
+        <button type="submit">Go</button>
+      </div>
+    </form>
+
+    <div class="output">
+      <!-- results for each uploaded image will appear here -->
+    </div>
+  </main>
+
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
