@@ -1,0 +1,3 @@
+io
+Pillow
+FastAPI
