@@ -39,7 +39,7 @@ def write_json_to_sheet_cell(json_file_path, cell_address):
     try:
         # Load credentials from the downloaded JSON key file
         creds = Credentials.from_service_account_file(st.secrets["gcp_service_account"], scopes=scope)
-        
+
         # Authorize gspread
         gc = gspread.authorize(creds)
 
@@ -85,6 +85,10 @@ if 'tags' not in st.session_state:
     st.session_state['tags'] = set(initial_tags)
 if 'new_tag' not in st.session_state:
     st.session_state['new_tag'] = ""
+if 'box_number' not in st.session_state:
+    st.session_state['box_number'] = 1
+if 'folder_number' not in st.session_state:
+    st.session_state['folder_number'] = 1
 
 # Set page title and header
 st.set_page_config(page_title="OMI MetaData Analyzer", layout="centered")
@@ -98,8 +102,13 @@ with col2c:
 if not st.session_state['file_uploaded'] or st.session_state['upload_error']:
     st.write("""
     This tool allows you to select an image file and have our AI suggest metadata tags.
+    Please select a box and folder number to help us organize the image tags.
     """)
-
+    col1d, col2d = st.columns([0.25, 0.25], vertical_alignment="center")
+    with col1d:
+        boxnumber = st.number_input("Box #", step=1, min_value=1, max_value=25, value=st.session_state['box_number'])
+    with col2d:
+        foldernumber = st.number_input("Folder #", step=1, min_value=1, max_value=40, value=st.session_state['folder_number'])
     # File uploader widget
     uploaded_file = st.file_uploader(
         "Choose image...",
@@ -125,6 +134,8 @@ if not st.session_state['file_uploaded'] or st.session_state['upload_error']:
                 st.session_state['uploaded_file_name'] = uploaded_file.name
                 st.session_state['uploaded_file_type'] = uploaded_file.type
                 st.session_state['uploaded_file_size'] = uploaded_file.size
+                st.session_state['box_number'] = boxnumber
+                st.session_state['folder_number'] = foldernumber
                 st.rerun()
             else:
                 st.session_state['upload_error'] = upload_error_message
@@ -179,7 +190,7 @@ if st.session_state['file_uploaded']:
             # Call the function to write to Google Sheets
             write_json_to_sheet_cell(
                 json_file_path='output_tags.json',
-                cell_address='A1'
+                cell_address='L5'
             )
             with col3b:
                 st.success("Tags exported successfully!")
