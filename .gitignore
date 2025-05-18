@@ -1,5 +1,8 @@
 src/.env
 src/omi-photos-a28d8539c0c5.json
 .DS_Store
-src/__pycache__/fastapi_server.cpython-312.pyc
+/src/__pycache__
+/unused/__pycache__
+
+/src/uploaded_files_backend
 /src/__pycache__
