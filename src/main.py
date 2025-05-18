@@ -18,8 +18,6 @@ def write_json_to_sheet_cell(json_file_path, cell_address):
 
     Args:
         json_file_path (str): The path to the JSON file.
-        spreadsheet_name (str): The name of the Google Sheet.
-        worksheet_name (str): The name of the worksheet within the Google Sheet.
         cell_address (str): The address of the cell where you want to write the JSON data (e.g., 'A1').
     """
     try:
@@ -33,12 +31,13 @@ def write_json_to_sheet_cell(json_file_path, cell_address):
     scope = [
         'https://www.googleapis.com/auth/spreadsheets'
     ]
-
     
+    # Load credentials from the downloaded JSON key file
+    creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
 
     try:
         # Load credentials from the downloaded JSON key file
-        creds = Credentials.from_service_account_file(st.secrets["gcp_service_account"], scopes=scope)
+        creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
 
         # Authorize gspread
         gc = gspread.authorize(creds)
@@ -189,7 +188,7 @@ if st.session_state['file_uploaded']:
 
             # Call the function to write to Google Sheets
             write_json_to_sheet_cell(
-                json_file_path='output_tags.json',
+                json_file_path='src/output_tags.json',
                 cell_address='L5'
             )
             with col3b:
