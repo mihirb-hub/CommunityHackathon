@@ -4,11 +4,11 @@ import { maybeShowApiKeyBanner } from './gemini-api-banner'
 import './style.css'
 
 // Your Gemini key
-const API_KEY = 'AIzaSyCWcFxsgsyiMhGJeG0WOthIeIyrSyBpRIM'
+const API_KEY = 'YOUR_API_KEY'
 
 // The hidden, uneditable prompt
 const USER_PROMPT = 
-  "Give 5–25 keywords about this image, each starting with #, and no other information."
+  "Give 5–25 keywords about this image, each starting with #, and no other information. Here are some examples that should give you a sense of what kind of words I want. #performance #audience #instruments #event #public #audience #percussion instruments #banquet #performance #singing #OAA event #celebration#event #banquet #dinner party #formal event #photograph #cameras #dinner party #performance #makeup #dance #theater #dress #instruments#event #outdoor event #parade #Little Tokyo #Los Angeles #Nisei Week #Nisei #Nisei Grand Parade #Nikkei Parents of the Year Clarance #Helen Nishizu National Parents Day #Ito Farms #Tony Okada #Jim Woole #Akira Fukuda #Pan-Olympic Games #Olympics #karate #judo #Sumi Onodera-Leonard #Arthur Mokane #Maito #Daiko Matsuri Ryukyukoku #banners #instruments #performance #martial arts #float #beauty queen #costume #Mexico #Native American #Trudy Nodohara #Little Tokyo Lion's Club #Lion's Club #dance. for each i do not want you to say here are some keywords"
 
 const form      = document.querySelector('form')
 const fileInput = document.getElementById('fileInput')
