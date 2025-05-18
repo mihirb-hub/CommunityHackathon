@@ -1,3 +1,14 @@
+<<<<<<< Updated upstream
 io
 Pillow
 FastAPI
+=======
+google-cloud-storage
+streamlit
+google-auth
+Pillow
+fastapi
+generativeai
+uvicorn
+google-cloud-aiplatform
+>>>>>>> Stashed changes
