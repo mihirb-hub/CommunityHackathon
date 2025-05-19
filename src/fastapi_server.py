@@ -6,8 +6,8 @@ import mimetypes
 
 # --- Environment Variable Loading ---
 from dotenv import load_dotenv
-load_dotenv() 
-logger = logging.getLogger(__name__) 
+load_dotenv()
+logger = logging.getLogger(__name__)
 logger.info("FastAPI Server: Attempted to load .env file.")
 
 
@@ -21,7 +21,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-logging.basicConfig(level=logging.INFO) 
+logging.basicConfig(level=logging.INFO)
 
 # --- Configuration for Google Sheets ---
 SERVICE_ACCOUNT_FILE = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
@@ -32,9 +32,9 @@ logger.info(f"FastAPI Server: GOOGLE_SHEETS_ID read as: {SPREADSHEET_ID}")
 
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-SHEET_NAME_FOR_KEYWORDS = 'Photos' 
+SHEET_NAME_FOR_KEYWORDS = 'Photos'
 # --- MODIFIED HEADERS: Removed "Prompt Used" ---
-SHEET_HEADERS = ["Filename", "Keywords", "Description"] 
+SHEET_HEADERS = ["Filename", "Keywords", "Description"]
 
 # --- Initialize Google Sheets Service ---
 sheets_service = None
@@ -54,7 +54,7 @@ except Exception as e:
     logger.error(f"FastAPI Server: Failed to initialize Google Sheets service: {e}", exc_info=True)
     sheets_service = None
 
-# --- UPLOAD_DIRECTORY setup ---
+# --- UPLOAD_DIRECTORY setup (still here if /uploadfile/ is used for other purposes) ---
 UPLOAD_DIR_NAME = "uploaded_files_backend"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIRECTORY = os.path.join(SCRIPT_DIR, UPLOAD_DIR_NAME)
@@ -70,7 +70,7 @@ else:
 app = FastAPI(
     title="File Upload, Serve, and AI Keyword/Description Extraction API",
     description="FastAPI backend to receive files, serve them, extract keywords and descriptions, and log to a specific Google Sheet (without prompt info).",
-    version="1.7.1" # Incremented version
+    version="1.8.0" # Incremented version for new functionality
 )
 
 def ensure_sheet_with_headers(service, spreadsheet_id, sheet_name, headers):
@@ -81,7 +81,7 @@ def ensure_sheet_with_headers(service, spreadsheet_id, sheet_name, headers):
         sheet_metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
         sheets = sheet_metadata.get('sheets', [])
         sheet_exists = False
-        
+
         for sheet_properties in sheets:
             if sheet_properties.get('properties', {}).get('title') == sheet_name:
                 sheet_exists = True
@@ -97,7 +97,7 @@ def ensure_sheet_with_headers(service, spreadsheet_id, sheet_name, headers):
             header_body = {'values': [headers]}
             service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
-                range=f"'{sheet_name}'!A1", 
+                range=f"'{sheet_name}'!A1",
                 valueInputOption='USER_ENTERED',
                 body=header_body
             ).execute()
@@ -105,7 +105,7 @@ def ensure_sheet_with_headers(service, spreadsheet_id, sheet_name, headers):
         else:
             result = service.spreadsheets().values().get(
                 spreadsheetId=spreadsheet_id,
-                range=f"'{sheet_name}'!1:1" 
+                range=f"'{sheet_name}'!1:1"
             ).execute()
             current_headers = result.get('values', [[]])[0] if result.get('values') else []
             current_headers_str = [str(h).strip() for h in current_headers]
@@ -141,19 +141,30 @@ async def startup_event():
 
     if sheets_service:
         logger.info("FastAPI Server: Attempting to ensure 'Keywords' sheet exists with headers on startup...")
-        if not ensure_sheet_with_headers(sheets_service, SPREADSHEET_ID, SHEET_NAME_FOR_KEYWORDS, SHEET_HEADERS): # Will use new headers
+        if not ensure_sheet_with_headers(sheets_service, SPREADSHEET_ID, SHEET_NAME_FOR_KEYWORDS, SHEET_HEADERS):
             logger.error(f"FastAPI Server: Failed to ensure '{SHEET_NAME_FOR_KEYWORDS}' sheet is ready on startup. Check permissions and SPREADSHEET_ID.")
     else:
         logger.error("FastAPI Server: Google Sheets service is NOT initialized. Check GOOGLE_APPLICATION_CREDENTIALS and GOOGLE_SHEETS_ID environment variables and .env file loading.")
 
 
-@app.post("/uploadfile/", tags=["File Operations"])
+# This endpoint might still be used for other purposes, or can be removed if not needed.
+# For the main analysis flow, main.py will no longer call this.
+@app.post("/uploadfile/", tags=["File Operations (Legacy/Optional)"])
 async def create_upload_file(uploaded_file: UploadFile = File(...)):
     if not uploaded_file:
         raise HTTPException(status_code=400, detail="No file uploaded.")
     original_filename = uploaded_file.filename or "unnamed_file"
+    # Ensure UPLOAD_DIRECTORY exists if this endpoint is to be used
+    if not os.path.exists(UPLOAD_DIRECTORY):
+        try:
+            os.makedirs(UPLOAD_DIRECTORY)
+            logger.info(f"FastAPI Server (/uploadfile): Created upload directory at: {UPLOAD_DIRECTORY}")
+        except OSError as e:
+            logger.error(f"FastAPI Server (/uploadfile): Could not create upload directory at {UPLOAD_DIRECTORY}: {e}")
+            raise HTTPException(status_code=500, detail=f"Could not create upload directory: {e}")
+
     safe_filename = os.path.basename(original_filename).replace("..", "").replace("/", "")
-    if not safe_filename: 
+    if not safe_filename:
         safe_filename = "default_uploaded_file"
 
     file_location_on_server = os.path.join(UPLOAD_DIRECTORY, safe_filename)
@@ -167,23 +178,23 @@ async def create_upload_file(uploaded_file: UploadFile = File(...)):
     try:
         with open(file_location_on_server, "wb+") as file_object:
             shutil.copyfileobj(uploaded_file.file, file_object)
-        logger.info(f"FastAPI Server: File '{safe_filename}' saved to '{file_location_on_server}'")
+        logger.info(f"FastAPI Server (/uploadfile): File '{safe_filename}' saved to '{file_location_on_server}'")
         return JSONResponse(status_code=200, content={
-            "message": "File saved successfully.",
-            "filename_on_server": safe_filename, 
+            "message": "File saved successfully (legacy endpoint).",
+            "filename_on_server": safe_filename,
             "original_filename": original_filename,
             "content_type_at_upload": uploaded_file.content_type,
-            "file_size_bytes": getattr(uploaded_file, 'size', None)
+            "file_size_bytes": getattr(uploaded_file, 'size', None) # size might not be available on UploadFile after read
         })
     except Exception as e:
-        logger.error(f"FastAPI Server: Error saving file {safe_filename}: {e}", exc_info=True)
+        logger.error(f"FastAPI Server (/uploadfile): Error saving file {safe_filename}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Could not save file: {e}")
     finally:
         if uploaded_file and hasattr(uploaded_file, 'file') and hasattr(uploaded_file.file, 'closed') and not uploaded_file.file.closed:
             uploaded_file.file.close()
 
 
-@app.get("/files/{filename}", tags=["File Operations"])
+@app.get("/files/{filename}", tags=["File Operations (Legacy/Optional)"])
 async def get_file(filename: str):
     safe_filename = os.path.basename(filename)
     file_path = os.path.join(UPLOAD_DIRECTORY, safe_filename)
@@ -193,63 +204,54 @@ async def get_file(filename: str):
     return FileResponse(path=file_path, media_type=media_type or 'application/octet-stream', filename=safe_filename)
 
 
-@app.post("/extract-keywords/{filename}", tags=["AI Operations"])
-async def trigger_keyword_extraction(filename: str):
+# MODIFIED Endpoint: Now accepts file data directly
+@app.post("/extract-keywords/", tags=["AI Operations"]) # Removed {filename} from path
+async def trigger_keyword_extraction(uploaded_file: UploadFile = File(...)):
     if not (hasattr(gemini_keyword_extractor, '_VERTEX_AI_INITIALIZED') and gemini_keyword_extractor._VERTEX_AI_INITIALIZED):
         raise HTTPException(status_code=503, detail="AI service (Vertex AI) is not available.")
 
-    safe_filename = os.path.basename(filename)
-    file_path = os.path.join(UPLOAD_DIRECTORY, safe_filename)
-    if not os.path.isfile(file_path):
-        logger.error(f"FastAPI Server: Image file not found for extraction: {file_path}")
-        raise HTTPException(status_code=404, detail=f"File '{safe_filename}' not found for extraction.")
+    if not uploaded_file or not uploaded_file.filename:
+        raise HTTPException(status_code=400, detail="No file or filename provided.")
 
-    # prompt_to_display = gemini_keyword_extractor.KEYWORD_DESCRIPTION_PROMPT # No longer needed to send to client
-
+    # Use the uploaded file's name for logging and identification
+    safe_filename = os.path.basename(uploaded_file.filename)
+    
     try:
-        with open(file_path, "rb") as f:
-            image_bytes = f.read()
+        image_bytes = await uploaded_file.read()
+        mime_type = uploaded_file.content_type or mimetypes.guess_type(safe_filename)[0] or 'application/octet-stream'
 
-        mime_type, _ = mimetypes.guess_type(file_path)
-        mime_type = mime_type or 'application/octet-stream'
-
-        logger.info(f"FastAPI Server: Requesting keywords and description for {safe_filename}.")
+        logger.info(f"FastAPI Server: Requesting keywords and description for {safe_filename} (direct upload).")
         keywords_list, description, error_message = gemini_keyword_extractor.generate_keywords_and_description(
             image_bytes, mime_type
         )
 
-        # --- MODIFIED RESPONSE CONTENT: Removed prompt_used_source and prompt_text_sent_to_module ---
         response_content = {
             "filename": safe_filename,
             "keywords": keywords_list,
-            "description": description, 
+            "description": description,
             "error": error_message,
             "status": "error" if error_message else "success"
-            # "prompt_used_source": "Module Default (Keywords & Description)", # REMOVED
-            # "prompt_text_sent_to_module": prompt_to_display # REMOVED
         }
 
-        if not error_message and (keywords_list or description): 
+        if not error_message and (keywords_list or description):
             logger.info(f"FastAPI Server: Extraction successful for {safe_filename}. Keywords: {keywords_list}, Desc: {description[:50] if description else 'N/A'}...")
             if sheets_service:
                 sheet_ready = ensure_sheet_with_headers(sheets_service, SPREADSHEET_ID, SHEET_NAME_FOR_KEYWORDS, SHEET_HEADERS)
                 if sheet_ready:
                     try:
                         keywords_str = ", ".join(keywords_list) if keywords_list else ""
-                        # --- MODIFIED ROW TO APPEND: Removed prompt_to_display ---
                         row_to_append = [
                             safe_filename,
                             keywords_str,
                             description if description else ""
-                            # prompt_to_display # REMOVED
                         ]
                         value_range_body = {'values': [row_to_append]}
-                        
+
                         sheets_service.spreadsheets().values().append(
                             spreadsheetId=SPREADSHEET_ID,
-                            range=f"'{SHEET_NAME_FOR_KEYWORDS}'!A1", 
+                            range=f"'{SHEET_NAME_FOR_KEYWORDS}'!A1",
                             valueInputOption='USER_ENTERED',
-                            insertDataOption='INSERT_ROWS', 
+                            insertDataOption='INSERT_ROWS',
                             body=value_range_body
                         ).execute()
                         logger.info(f"FastAPI Server: Successfully appended data for {safe_filename} to Google Sheet '{SHEET_NAME_FOR_KEYWORDS}'.")
@@ -272,18 +274,20 @@ async def trigger_keyword_extraction(filename: str):
             else:
                 logger.warning("FastAPI Server: Google Sheets service not initialized. Skipping sheet logging for {safe_filename}.")
                 response_content["sheets_logging_status"] = "skipped_not_initialized"
-        elif error_message: 
+        elif error_message:
             logger.error(f"FastAPI Server: Extraction failed for {safe_filename}: {error_message}")
             response_content["status"] = "error"
-
 
         return JSONResponse(status_code=200, content=response_content)
 
     except Exception as e:
         logger.error(f"FastAPI Server: Unexpected error during extraction endpoint for {safe_filename}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"An unexpected server error occurred: {str(e)}")
+    finally:
+        if uploaded_file and hasattr(uploaded_file, 'file') and hasattr(uploaded_file.file, 'closed') and not uploaded_file.file.closed:
+            uploaded_file.file.close()
+
 
 @app.get("/", tags=["General"])
 async def root():
     return {"message": f"FastAPI backend (v{app.version}) for file upload, serving, AI extraction, and Sheets logging is running."}
-
